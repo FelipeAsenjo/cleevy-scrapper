@@ -16,10 +16,9 @@ const scrap = async () => {
     maxConcurrency: 1,
     timeout: 45000,
     monitor: true,
-    puppeteerOptions: { // eliminar al finalizar
-      headless: false,
-      //slowMo: 250,
-    }
+    //puppeteerOptions: { // debugging purposes
+      //headless: false,
+    //}
   })
 
   cluster.on('taskerror', (err, info) => {
@@ -55,16 +54,14 @@ const scrap = async () => {
       if(element != 0) {
         pushData(page.url(), element, title)
       }
-      
-      // eliminar al finalizar
-      await page.waitForTimeout(2000)
+
+      // debugging purposes
+      //await page.waitForTimeout(2000) 
     }
   })
 
-  //await cluster.queue({ url: urls[10] })
   await urls.forEach(url => cluster.queue({ url, USER_NAME, PASSWORD }))
 
-  // enviar mail con los datos
   await cluster.idle()
   await cluster.close()
 }
