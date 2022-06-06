@@ -5,55 +5,66 @@ require('dotenv').config()
 
 const { SUBDOMAIN, USER_NAME, PASSWORD } = process.env
 
+const retrievedInfo = {}
+
 const scrap = async () => {
   const data = await readDataFile()
   const urls = await data.map(x => `http://${x}${SUBDOMAIN}`)
-  
-  console.log(urls)
 
   const cluster = await Cluster.launch({
     concurrency: Cluster.CONCURRENCY_PAGE,
     maxConcurrency: 1,
     timeout: 45000,
     monitor: true,
-    puppeteerOptions: {
+    puppeteerOptions: { // eliminar al finalizar
       headless: false,
-      //slowMo: 500, 
+      //slowMo: 250,
     }
   })
 
-  cluster.on('taskerror', (err, data) => {
-    console.log(`Error ${data}: ${err.message}`)
+  cluster.on('taskerror', (err, info) => {
+    console.log(`Error ${info}: ${err}`)
   })
-
 
   await cluster.task(async ({page, data}) => {
 
     await page.goto(data.url)
+    const client = page.url().split(/\W/gi)[3]
+
+    // login
     if( page.url().includes('login') ) {
       await page.type('#user_email', USER_NAME)
       await page.type('#user_password', PASSWORD)
       await page.click('.form-inputs .btn-primary')
     }
-    await page.waitForSelector('.thumbnails li')
-    const listElements = await page.$('.thumbnails > li')
-    const titles = await page.evaluate(() => {
-      const elements = document.querySelectorAll('.thumbnails > li') 
+    await page.waitForSelector('.actions .dropdown-toggle')
+    const btns = await page.$$('.actions li:last-child a') 
 
-      const arrTitles = []
-      for( let element of elements) {
-        arrTitles.push(element.innerText) 
+    // navigate & get data
+    for(i = 0; i < btns.length; i++) {
+
+      await page.evaluate(element => element.click(), btns[i])
+      await page.waitForSelector('.modal [href="#year"]')
+      const title = await page.evaluate(() => document.querySelector('.modal h2').innerText)
+      await page.click('.modal [href="#year"]')
+      const element = await page.evaluate(() => {
+        const date = new Date()
+        return document.querySelectorAll('#year td')[date.getMonth() - 1].innerText
+      })
+      
+      if(element != 0) {
+        pushData(page.url(), element, title)
       }
       
-      return elements
-    })
-    console.log(titles)
+      // eliminar al finalizar
+      await page.waitForTimeout(2000)
+    }
   })
 
+  //await cluster.queue({ url: urls[10] })
+  await urls.forEach(url => cluster.queue({ url, USER_NAME, PASSWORD }))
 
-  await cluster.queue({ url: urls[0] })
-  //await urls.forEach(url => cluster.queue({ url, USER_NAME, PASSWORD }))
-
+  // enviar mail con los datos
   await cluster.idle()
   await cluster.close()
 }
@@ -64,6 +75,14 @@ const readDataFile = async () => {
       resolve(JSON.parse(data))
     })
   })
+}
+
+const pushData = (url, nOfSurveys, survey) => {
+  if(!retrievedInfo[url]) {
+    retrievedInfo[url] = {}
+  }
+  retrievedInfo[url][survey] = nOfSurveys
+  console.log(JSON.stringify(retrievedInfo))
 }
 
 scrap()
