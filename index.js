@@ -16,7 +16,7 @@ const scrap = async () => {
     maxConcurrency: 1,
     timeout: 45000,
     monitor: true,
-    //puppeteerOptions: { // debugging purposes
+    //puppeteerOptions: { // DEBUGGING PURPOSES
       //headless: false,
     //}
   })
@@ -30,7 +30,7 @@ const scrap = async () => {
     await page.goto(data.url)
     const client = page.url().split(/\W/gi)[3]
 
-    // login
+    // LOGIN
     if( page.url().includes('login') ) {
       await page.type('#user_email', USER_NAME)
       await page.type('#user_password', PASSWORD)
@@ -39,28 +39,34 @@ const scrap = async () => {
     await page.waitForSelector('.actions .dropdown-toggle')
     const btns = await page.$$('.actions li:last-child a') 
 
-    // navigate & get data
+    // NAVIGATE & GET DATA
     for(i = 0; i < btns.length; i++) {
 
       await page.evaluate(element => element.click(), btns[i])
       await page.waitForSelector('.modal [href="#year"]')
       const title = await page.evaluate(() => document.querySelector('.modal h2').innerText)
       await page.click('.modal [href="#year"]')
+      await page.waitForSelector('#year td')
       const element = await page.evaluate(() => {
         const date = new Date()
         return document.querySelectorAll('#year td')[date.getMonth() - 1].innerText
       })
-      
+
       if(element != 0) {
-        pushData(page.url(), element, title)
+        await pushData(page.url(), element, title)
       }
 
-      // debugging purposes
-      //await page.waitForTimeout(2000) 
+      // DEBUGGING PURPOSES
+      await page.waitForTimeout(1500) 
     }
+    
+    console.log('\x1b[42m%s\x1b[0m', `${client}:`.toUpperCase())
+    console.table(retrievedInfo[page.url()])
   })
 
-  await urls.forEach(url => cluster.queue({ url, USER_NAME, PASSWORD }))
+  // DEBUGGING PURPOSES
+  //await cluster.queue({ url: urls[9] })
+  await urls.forEach(url => cluster.queue({ url }))
 
   await cluster.idle()
   await cluster.close()
@@ -79,7 +85,7 @@ const pushData = (url, nOfSurveys, survey) => {
     retrievedInfo[url] = {}
   }
   retrievedInfo[url][survey] = nOfSurveys
-  console.log(JSON.stringify(retrievedInfo))
+  //console.log(JSON.stringify(retrievedInfo))
 }
 
 scrap()
