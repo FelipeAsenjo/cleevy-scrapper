@@ -8,13 +8,13 @@ const { SUBDOMAIN, USER_NAME, PASSWORD } = process.env
 const retrievedInfo = {}
 
 const scrap = async () => {
-  const data = await readDataFile()
-  const urls = await data.map(x => `http://${x}${SUBDOMAIN}`)
+  const clients = process.env.CLIENTS.split(' ') || await readDataFile()
+  const urls = await clients.map(x => `http://${x}${SUBDOMAIN}`)
 
   const cluster = await Cluster.launch({
     concurrency: Cluster.CONCURRENCY_PAGE,
     maxConcurrency: 1,
-    timeout: 45000,
+    timeout: 65000,
     monitor: true,
     //puppeteerOptions: { // DEBUGGING PURPOSES
       //headless: false,
@@ -22,7 +22,7 @@ const scrap = async () => {
   })
 
   cluster.on('taskerror', (err, info) => {
-    console.log(`Error ${info}: ${err}`)
+    console.log(`Error ${info.url}: ${err}`)
   })
 
   await cluster.task(async ({page, data}) => {
@@ -65,7 +65,7 @@ const scrap = async () => {
   })
 
   // DEBUGGING PURPOSES
-  //await cluster.queue({ url: urls[9] })
+  //await cluster.queue({ url: urls[6] })
   await urls.forEach(url => cluster.queue({ url }))
 
   await cluster.idle()
