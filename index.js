@@ -29,6 +29,8 @@ const scrap = async () => {
 
     await page.goto(data.url)
     const client = page.url().split(/\W/gi)[3]
+    const date = new Date()
+    const month = Number(process.env.MONTH) || date.getMonth() - 1
 
     // LOGIN
     if( page.url().includes('login') ) {
@@ -47,10 +49,10 @@ const scrap = async () => {
       const title = await page.evaluate(() => document.querySelector('.modal h2').innerText)
       await page.click('.modal [href="#year"]')
       await page.waitForSelector('#year td')
-      const element = await page.evaluate(() => {
+      const element = await page.evaluate(month => {
         const date = new Date()
-        return document.querySelectorAll('#year td')[date.getMonth() - 1].innerText
-      })
+        return document.querySelectorAll('#year td')[month].innerText
+      }, month)
 
       if(element != 0) {
         await pushData(page.url(), element, title)
