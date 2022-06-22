@@ -8,7 +8,8 @@ const { SUBDOMAIN, USER_NAME, PASSWORD } = process.env
 const retrievedInfo = {}
 
 const scrap = async () => {
-  const clients = process.env.CLIENTS.split(' ') || await readDataFile()
+  let clients = process.env.CLIENTS || await readDataFile()
+  if(typeof clients === 'string') clients = clients.split(' ') 
   const urls = await clients.map(x => `http://${x}${SUBDOMAIN}`)
 
   const cluster = await Cluster.launch({
@@ -22,7 +23,7 @@ const scrap = async () => {
   })
 
   cluster.on('taskerror', (err, info) => {
-    console.log(`Error ${info.url}: ${err}`)
+    console.log('\x1b[41m%s\x1b[0m', `${info.url}`.split(/\W/gi)[3].toUpperCase())
   })
 
   await cluster.task(async ({page, data}) => {
@@ -66,8 +67,6 @@ const scrap = async () => {
     console.table(retrievedInfo[page.url()])
   })
 
-  // DEBUGGING PURPOSES
-  //await cluster.queue({ url: urls[6] })
   await urls.forEach(url => cluster.queue({ url }))
 
   await cluster.idle()
