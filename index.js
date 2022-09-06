@@ -6,6 +6,7 @@ require('dotenv').config()
 const { SUBDOMAIN, USER_NAME, PASSWORD } = process.env
 
 const retrievedInfo = {}
+const failedUrls = []
 
 const scrap = async () => {
   let clients = process.env.CLIENTS || await readDataFile()
@@ -24,6 +25,7 @@ const scrap = async () => {
 
   cluster.on('taskerror', (err, info) => {
     console.log('\x1b[41m%s\x1b[0m', `${info.url}`.split(/\W/gi)[3].toUpperCase())
+    failedUrls.push(info.url)
   })
 
   await cluster.task(async ({page, data}) => {
@@ -49,21 +51,20 @@ const scrap = async () => {
       await page.evaluate(element => element.click(), btns[i])
       await page.waitForSelector('.modal [href="#year"]')
       await page.waitForTimeout(500)
-      const title = await page.evaluate(() => document.querySelector('.modal h2').innerText)
+      const surveyTitle = await page.evaluate(() => document.querySelector('.modal h2').innerText)
       await page.click('.modal [href="#year"]')
       await page.waitForSelector('#year td')
       await page.waitForTimeout(500)
-      const element = await page.evaluate(month => {
-        const date = new Date()
+      const nOfSurveys = await page.evaluate(month => {
         return document.querySelectorAll('#year td')[month].innerText
       }, month)
 
-      if(element != 0) {
-        await pushData(page.url(), element, title)
+      if(nOfSurveys != 0) {
+        await pushData(page.url(), nOfSurveys, surveyTitle)
       }
 
       // DEBUGGING PURPOSES
-      //await page.waitForTimeout(1000) 
+      //await page.waitForTimeout(1500) 
     }
     
     console.log('\x1b[42m%s\x1b[0m', `${client}:`.toUpperCase())
@@ -74,6 +75,9 @@ const scrap = async () => {
 
   await cluster.idle()
   await cluster.close()
+
+  const failedClients = failedUrls.map(url => url.split(/\W/gi)[3])
+  console.log(failedClients.join(' '))
 }
 
 const readDataFile = async () => {
