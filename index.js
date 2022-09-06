@@ -40,6 +40,7 @@ const scrap = async () => {
       await page.click('.form-inputs .btn-primary')
     }
     await page.waitForSelector('.actions .dropdown-toggle')
+    await page.waitForTimeout(500)
     const btns = await page.$$('.actions li:last-child a') 
 
     // NAVIGATE & GET DATA
@@ -47,9 +48,11 @@ const scrap = async () => {
 
       await page.evaluate(element => element.click(), btns[i])
       await page.waitForSelector('.modal [href="#year"]')
+      await page.waitForTimeout(500)
       const title = await page.evaluate(() => document.querySelector('.modal h2').innerText)
       await page.click('.modal [href="#year"]')
       await page.waitForSelector('#year td')
+      await page.waitForTimeout(500)
       const element = await page.evaluate(month => {
         const date = new Date()
         return document.querySelectorAll('#year td')[month].innerText
@@ -60,7 +63,7 @@ const scrap = async () => {
       }
 
       // DEBUGGING PURPOSES
-      await page.waitForTimeout(1500) 
+      //await page.waitForTimeout(1000) 
     }
     
     console.log('\x1b[42m%s\x1b[0m', `${client}:`.toUpperCase())
