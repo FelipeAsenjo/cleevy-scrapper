@@ -87,11 +87,12 @@ const scrap = async () => {
   /* GET FAILED CLIENT DOMAINS */
   const failedClients = failedUrls.map(url => subStringUrl(url))
   console.log(failedClients.join(' '))
+
   /* SAVE DATA IN FILE */
   saveResultsInFile(JSON.stringify(retrievedInfo, null, 4))
 }
 
-/* ---------- USEFUL FUNCTIONS ---------- */
+/* ---------- UTILITIES ---------- */
 
 const subStringUrl = url => /[^.]+/.exec(url)[0].substr(8)
 
@@ -111,7 +112,7 @@ const pushData = (url, nOfSurveys, survey) => {
 }
 
 const saveResultsInFile = data => {
-  fs.writeFile(`surveys_${month + 1}-${date.getFullYear()}.json`, data, (err) =>{
+  fs.writeFile(`surveys_${month + 1}-${date.getFullYear()}_${Date.now()}.json`, data, (err) =>{
     if(err) {
       console.log(err)
       return
