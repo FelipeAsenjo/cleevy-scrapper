@@ -62,3 +62,6 @@ typings/
 
 # clients list
 clients.json
+
+# surveys result
+surveys*.json

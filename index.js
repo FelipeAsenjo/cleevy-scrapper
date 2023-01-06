@@ -4,12 +4,17 @@ const fs = require('fs')
 require('dotenv').config()
 const { SUBDOMAIN, USER_NAME, PASSWORD } = process.env
 
+
 /* SCRIPT STATE */
 const retrievedInfo = {}
 const failedUrls = []
 const date = new Date()
-const month = Number(process.env.MONTH) || date.getMonth() - 1
+const month = function() {
+  if(process.env.MONTH) return Number(process.env.MONTH)
+  if(date.getMonth() - 1 < 0) return 11
 
+  return date.getMonth() - 1
+}()
 
 /* INIT SCRAPING */
 const scrap = async () => {
@@ -17,16 +22,19 @@ const scrap = async () => {
   if(typeof clients === 'string') clients = clients.split(' ') 
   const urls = await clients.map(x => `http://${x}${SUBDOMAIN}`)
 
+
   /* DEFINE CLUSTER */
   const cluster = await Cluster.launch({ 
     concurrency: Cluster.CONCURRENCY_PAGE,
     maxConcurrency: 1,
     timeout: 65000,
     monitor: true,
-    /*puppeteerOptions: { // DEBUGGING PURPOSES
-      headless: false,
-    } */
+    //puppeteerOptions: { // DEBUGGING PURPOSES
+      //headless: false,
+      //slowMo: 1500
+    //} 
   })
+
 
   /* ERROR HANDLER */
   cluster.on('taskerror', (err, info) => {
@@ -36,41 +44,56 @@ const scrap = async () => {
     failedUrls.push(clientDomain)
   })
 
+
+  const yearTab =  month == 11 ? "#last_year" : "#year"
+  const yearTableSelector = `${yearTab} td`
+
   /* INIT SCRAPING */
   await cluster.task(async ({page, data}) => {
 
     await page.goto(data.url)
     const clientDomain = subStringUrl(page.url())
 
-    /* LOGIN */
-    if( page.url().includes('login') ) {
-      await page.type('#user_email', USER_NAME)
-      await page.type('#user_password', PASSWORD)
-      await page.click('.form-inputs .btn-primary')
+
+    try {
+      /* LOGIN */
+      if( page.url().includes('login') ) {
+        await page.type('#user_email', USER_NAME)
+        await page.type('#user_password', PASSWORD)
+        await page.click('.form-inputs .btn-primary')
+      }
+
+      await page.waitForTimeout(1500)
+    } catch(err) {
+      console.error(clientDomain, 'login error', err)
     }
+
     await page.waitForSelector('.actions .dropdown-toggle')
-    await page.waitForTimeout(500)
+    await page.waitForTimeout(500) 
     const btns = await page.$$('.actions li:last-child a') 
 
     /* NAVIGATE & GET DATA */
     for(i = 0; i < btns.length; i++) {
+      /* NAVIGATE */
 
       await page.evaluate(element => element.click(), btns[i])
-      await page.waitForSelector('.modal [href="#year"]')
-      await page.waitForTimeout(500)
+      await page.waitForSelector(`.modal [href="${yearTab}"]`)
+      await page.waitForTimeout(500) 
       const surveyTitle = await page.evaluate(() => document.querySelector('.modal h2').innerText)
-      await page.click('.modal [href="#year"]')
-      await page.waitForSelector('#year td')
-      await page.waitForTimeout(500)
-      const nOfSurveys = await page.evaluate(month => {
-        return document.querySelectorAll('#year td')[month].innerText
-      }, month)
+      await page.click(`.modal [href="${yearTab}"]`)
+
+
+      await page.waitForSelector(yearTableSelector)
+      await page.waitForTimeout(500) 
+      const nOfSurveys = await page.evaluate((month, yearTableSelector) => {
+        return document.querySelectorAll(yearTableSelector)[month].innerText
+      }, month, yearTableSelector)
 
       if(nOfSurveys != 0) {
         await pushData(clientDomain, nOfSurveys, surveyTitle)
       }
 
-      // DEBUGGING PURPOSES
+       //DEBUGGING PURPOSES
       //await page.waitForTimeout(1500) 
     }
     
@@ -91,6 +114,7 @@ const scrap = async () => {
   /* SAVE DATA IN FILE */
   saveResultsInFile(JSON.stringify(retrievedInfo, null, 4))
 }
+
 
 /* ---------- UTILITIES ---------- */
 
